@@ -1,0 +1,82 @@
+---
+title: "Quality Control for MALDI-MSI"
+output: html_document
+date: "2025-05-15"
+author: "Chang Lu"
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+```{r}
+library(spdep)
+library(ggplot2)
+```
+
+
+
+```{r}
+# LOAD CSV
+datapath = '/Users/changlu/DATA/sma-ffpe/peakcsv'
+csv_files <- list.files(path = datapath, pattern = "\\.csv$", full.names = TRUE)
+csv_names <- tools::file_path_sans_ext(list.files(path = datapath, pattern = "\\.csv$", full.names = FALSE))
+```
+
+
+# calculate moran I per m/z, save it as .csv files
+```{r}
+moran_mean =  vector("list", length = 5)
+
+for(i in 1:length(csv_files)){
+  peak_df <- read.csv(csv_files[i])
+  coords <- peak_df[, c("x", "y")]
+  nb <- knn2nb(knearneigh(coords, k = 4))  # k = 4 is for the 4 nearest neighbors
+  listw <- nb2listw(nb, style = "W")  # W is the weight style (row-standardized)
+  # Calculate Moran's I for all columns except x and y
+  morans_I_results <- sapply(colnames(peak_df)[!(colnames(peak_df) %in% c("x", "y"))], function(col) {
+    a = moran.test(peak_df[,col], listw) 
+    return(c(a$estimate,a$statistic,a$p.value))
+  })
+  rownames(morans_I_results)[5] <- 'pvalue'
+  morans_I_results <- t(morans_I_results)
+  write.csv(morans_I_results, file=paste0('/Users/changlu/DATA/sma-ffpe/resultCL/', csv_names[i],'.csv'))
+  moran_mean[i] <- mean(morans_I_results[,1])
+}
+
+moran_mean
+```
+
+
+# visualization
+```{r}
+i = 1
+peak_df <- read.csv(csv_files[i])
+ggplot(data = peak_df)+
+  geom_point(mapping = aes(x = x, y = y, colour = X1352.62627), size  = 0.5)+
+  scale_colour_gradient(low = "white", high = "red")
+ggplot(data = peak_df)+
+  geom_point(mapping = aes(x = x, y = y, colour = X1551.75837), size  = 0.5)+
+  scale_colour_gradient(low = "white", high = "red")
+
+```
+
+
+
+```{r}
+i = 3
+peak_df <- read.csv(csv_files[i])
+ggplot(data = peak_df)+
+  geom_point(mapping = aes(x = x, y = y, colour = X1352.62627), size  = 0.5)+
+  scale_colour_gradient(low = "white", high = "red")
+ggplot(data = peak_df)+
+  geom_point(mapping = aes(x = x, y = y, colour = X1551.75837), size  = 0.5)+
+  scale_colour_gradient(low = "white", high = "red")
+
+```
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file). 
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+
